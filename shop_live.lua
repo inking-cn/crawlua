@@ -18,9 +18,9 @@ run = function (params)
 		end
 		
 		local year = os.date('*t').year
-		
-		if string.match(c, "<span class=\"update\">(%d+)月(%d+)日(%d+)時(%d+)分更新</span>") then
-			local up_month, up_day, up_hour, up_min = string.match(c, "<span class=\"update\">(%d+)月(%d+)日(%d+)時(%d+)分更新</span>")
+
+		if string.match(c, "<span class=\"update\">(%d+)[^%d]*(%d+)[^%d]*(%d+)[^%d]*(%d+)[^%d]*</span>") then
+			local up_month, up_day, up_hour, up_min = string.match(c, "<span class=\"update\">(%d+)[^%d]*(%d+)[^%d]*(%d+)[^%d]*(%d+)[^%d]*</span>")
 			page_update_time = string.format("%4d-%02d-%02d %02d:%02d:00", year, up_month, up_day, up_hour, up_min)
 		end
 		
@@ -36,8 +36,8 @@ run = function (params)
 				trade.name = string.match(tr, "<td class=\"name\"><span>(.-)</span>")
 			end
 			trade.order_no = string.match(tr, "<td class=\"o_no\">([%w-_*]+)</td>")
-			if string.match(tr, "<td class=\"date\">%d+月%d+日[^%d]*%d+時%d+分</td>") then
-				local month, day, hour, min = string.match(tr, "<td class=\"date\">(%d+)月(%d+)日[^%d]*(%d+)時(%d+)分</td>")
+			if string.match(tr, "<td class=\"date\">%d+[^%d]*%d+[^%d]*[^%d]*%d+[^%d]*%d+[^%d]*</td>") then
+				local month, day, hour, min = string.match(tr, "<td class=\"date\">(%d+)[^%d]*(%d+)[^%d]*[^%d]*(%d+)[^%d]*(%d+)[^%d]*</td>")
 				trade.order_date = string.format("%4d-%02d-%02d %02d:%02d:00", year, month, day, hour, min)
 				if os.time({year=year, month=month, day=day, hour=hour, min=min}) > os.time() then
 					trade.order_date = string.format("%4d-%02d-%02d %02d:%02d:00", year - 1, month, day, hour, min)
