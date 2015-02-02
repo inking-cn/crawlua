@@ -8,6 +8,7 @@ run = function (params)
 	local t = {}
 	local response, code, head = http.request{url = data.url, headers = headers, sink = ltn12.sink.table(t)}
 	local trades = {}
+	local page_update_time
 
 	if code == 200 then
 		local c = table.concat(t)
@@ -17,6 +18,12 @@ run = function (params)
 		end
 		
 		local year = os.date('*t').year
+		
+		if string.match(c, "<span class=\"update\">(%d+)月(%d+)日(%d+)時(%d+)分更新</span>") then
+			local up_month, up_day, up_hour, up_min = string.match(c, "<span class=\"update\">(%d+)月(%d+)日(%d+)時(%d+)分更新</span>")
+			page_update_time = string.format("%4d-%02d-%02d %02d:%02d:00", year, up_month, up_day, up_hour, up_min)
+		end
+		
 		for tr in string.gmatch(tbody, "<tr[^>]*>(.-)</tr>") do
 			local trade = {}
 			trade.addr = string.match(tr, "<td class=\"addr\">(.-)</td>")
@@ -40,7 +47,7 @@ run = function (params)
 			table.insert(trades, 1, trade)
 		end
 	end
-	return cjson.encode({result = trades, time = os.time()})
+	return cjson.encode({result = trades, time = os.time(), page_update_time = page_update_time})
 end
 
 print(run('{"url":"http://www.rakuten.ne.jp/gold/diana/orders/live.html","shop_id":"190446"}'))
