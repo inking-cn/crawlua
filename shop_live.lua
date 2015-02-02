@@ -40,7 +40,7 @@ run = function (params)
 			table.insert(trades, 1, trade)
 		end
 	end
-	return cjson.encode({result = trades})
+	return cjson.encode({result = trades, time = os.time()})
 end
 
 print(run('{"url":"http://www.rakuten.ne.jp/gold/diana/orders/live.html","shop_id":"190446"}'))
