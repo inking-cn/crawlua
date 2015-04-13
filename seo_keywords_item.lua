@@ -47,10 +47,8 @@ run = function (params)
     local t = {}
     local response, code = http.request{url = data.url, headers = headers, sink = ltn12.sink.table(t)}
     local result = {}
-    result.is_mobile = data.is_mobile
-    result.keyword = data.keyword
-    local date_table = os.date('*t')
-    result.date = string.format("%4d-%02d-%02d", date_table.year, date_table.month, date_table.day)
+    local date_table = os.date("*t")
+    local this_date = string.format("%4d-%02d-%02d", date_table.year, date_table.month, date_table.day)
     
     if code == 200 then
         local c = table.concat(t)
@@ -62,6 +60,9 @@ run = function (params)
         local count = 0
         for tr in string.gmatch(tbody, item_pattern) do
             local item = {}
+            item.keyword = data.keyword
+            item.type = data.is_mobile
+            item.date = this_date
             
             count = count + 1
             if data.is_mobile == "1" then
