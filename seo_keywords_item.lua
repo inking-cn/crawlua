@@ -47,6 +47,7 @@ run = function (params)
 	local t = {}
 	local response, code = http.request{url = data.url, headers = headers, sink = ltn12.sink.table(t)}
 	local result = {}
+	result.is_mobile = data.is_mobile
 	result.keyword = data.keyword
 	local date_table = os.date('*t')
 	result.date = string.format("%4d-%02d-%02d", date_table.year, date_table.month, date_table.day)
