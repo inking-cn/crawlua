@@ -73,7 +73,7 @@ run = function (params)
             item.shop_name, item.item_code, item.title = string.match(tr, link_pattern)
             item.copy_txt = string.match(tr, copy_txt_pattern)
             item.review_num = string.match(tr, review_num_pattern)
-            item.price = string.gsub(string.match(tr, price_pattern), ',', '')
+            item.price = string.gsub(string.match(tr, price_pattern), ",", "")
             item.point = string.match(tr, point_pattern)
             if string.match(tr, "送料込") then
                 item.free_shipping = 1
