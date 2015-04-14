@@ -13,7 +13,7 @@ patterns = function (is_mobile)
     if is_mobile == "1" then
         tbody_pattern = "<div%s+data%-ratUnit=\"true\"%s+class=\"resultItem%s+displayedItem\">.*<script%s+id=\"spmallAsuraku_viewTemplate\""
         item_pattern = "<div%s+data%-ratUnit=\"true\"%s+class=\"resultItem%s+displayedItem\">.-<li%s+class=\"itemPrice\">.-</div>"
-        link_pattern = "<dt%s+class=\"itemName\">.-<a%s+href=\"http://item.rakuten.co.jp/(%w+)/([^/]-)/\"%s+target=\"_top\">(.-)</a>"
+        link_pattern = "<dt%s+class=\"itemName\">.-<a%s+href=\"http://item.rakuten.co.jp/([^/]-)/([^/]-)/\"%s+target=\"_top\">(.-)</a>"
         copy_txt_pattern = "<dd%s+class=\"itemTxt\">(.-)</dd>"
         review_num_pattern = "<li%s+class=\"itemIcnRvw\">.-<a%s+href=\"http://review.rakuten.co.jp/.-\">(%d+)件"
         price_pattern = "<li%s+class=\"itemPrice\">.-([,0-9]+)円</li>"
@@ -21,7 +21,7 @@ patterns = function (is_mobile)
     else
         tbody_pattern = "<div%s+class=\"searchAccuracyMeasurement\".*<div%s+id=\"rsrPagerSect\">"
         item_pattern = "<div%s+class=\"searchAccuracyMeasurement\".-あす楽締切時間を表示"
-        link_pattern = "<div%s+class=\"rsrSResultItemTxt\">.-<a%s+href=\"http://item.rakuten.co.jp/(%w+)/([^/]-)/\">(.-)</a>"
+        link_pattern = "<div%s+class=\"rsrSResultItemTxt\">.-<a%s+href=\"http://item.rakuten.co.jp/([^/]-)/([^/]-)/\">(.-)</a>"
         copy_txt_pattern = "<p%s+class=\"copyTxt\">(.-)</p>"
         review_num_pattern = "<span%s+class=\"txtIconReviewNum\">.-<a%s+href=\"http://review.rakuten.co.jp/.-\">(%d+)件"
         price_pattern = "<p%s+class=\"price\">.->([,0-9]+)<span>.-円</span>"
@@ -84,4 +84,4 @@ run = function (params)
     return cjson.encode({result = result})
 end
 
-print(run('{"is_mobile":"1","url":"http://search.rakuten.co.jp/search/mall/0055/-/p.2","keyword":"0055","page_num":"2"}'))
+print(run('{"is_mobile":"0","url":"http://search.rakuten.co.jp/search/mall/伊佐美/-/p.2","keyword":"42480","page_num":"1"}'))
