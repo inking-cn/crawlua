@@ -1,5 +1,6 @@
 local http = require "socket.http"
 local cjson = require "cjson"
+local iconv = require "iconv"
 
 fake_header = function (is_mobile)
     local headers = {}
@@ -19,6 +20,8 @@ patterns = function (is_mobile)
     local review_num_pattern
     local price_pattern
     local point_pattern
+    local sales_desc_pattern = "<span%s+class=\"sale_desc\">(.-)</span>"
+    local item_desc_pattern = "<span%s+class=\"item_desc\">(.-)</span>"
     
     if is_mobile == "1" then
         tbody_pattern = "<div%s+data%-ratUnit=\"true\"%s+class=\"resultItem%s+displayedItem\">.*<script%s+id=\"spmallAsuraku_viewTemplate\""
@@ -28,6 +31,7 @@ patterns = function (is_mobile)
         review_num_pattern = "<li%s+class=\"itemIcnRvw\">.-<a%s+href=\"http://review.rakuten.co.jp/.-\">(%d+)件"
         price_pattern = "<li%s+class=\"itemPrice\">.-([,0-9]+)円</li>"
         point_pattern = "<li%s+class=\"itemPoint\">.-(%d+)倍</li>"
+        
     else
         tbody_pattern = "<div%s+class=\"searchAccuracyMeasurement\".*<div%s+id=\"rsrPagerSect\">"
         item_pattern = "<div%s+class=\"searchAccuracyMeasurement\".-あす楽締切時間を表示.-</div>"
@@ -36,53 +40,89 @@ patterns = function (is_mobile)
         review_num_pattern = "<span%s+class=\"txtIconReviewNum\">.-<a%s+href=\"http://review.rakuten.co.jp/.-\">(%d+)件"
         price_pattern = "<p%s+class=\"price\">.->([,0-9]+)<span>.-円</span>"
         point_pattern = "<p%s+class=\"point\">.-(%d+)倍</p>"
+
     end
     
-    return tbody_pattern, item_pattern, link_pattern, copy_txt_pattern, review_num_pattern, price_pattern, point_pattern
+    return sales_desc_pattern, item_desc_pattern, tbody_pattern, item_pattern, link_pattern, copy_txt_pattern, review_num_pattern, price_pattern, point_pattern
 end
 
 comp_rank = function (t1, t2)
     return t1.rank < t2.rank
 end
 
-track_super_deal = function (is_mobile, shop_name, item_code)
-    local url = string.format("http://item.rakuten.co.jp/%s/%s", shop_name, item_code)
-    local headers = fake_header(is_mobile)
+get_related_keywords = function (is_mobile, keyword, encode_key)
     local t = {}
-    local response, code = http.request{url = url, headers = headers, sink = ltn12.sink.table(t)}
+    local time = os.time()
+    local response, code = http.request{url = string.format("http://api.dict.search.rakuten.co.jp/dictionary?sv=mall&fnc=each&h=10&rid=8648558079&sid=3&q=%s&oe=utf-8&of=js&cb=jsonp%s", encode_key, time), headers = fake_header(is_mobile), sink = ltn12.sink.table(t)}
+    if code ~= 200 then
+        return {}
+    end
+    
+    local c = table.concat(t)
+    local related_keys = {}    
+    for key in string.gmatch(c, "\"(.-)\"") do
+        if key ~= keyword then
+            table.insert(related_keys, key)
+        end
+    end
+    return related_keys
+end
+
+track_item_detail = function (is_mobile, shop_name, item_code, field)
+    local t = {}
+    local response, code = http.request{url = string.format("http://item.rakuten.co.jp/%s/%s", shop_name, item_code), headers = fake_header(is_mobile), sink = ltn12.sink.table(t)}
     if code ~= 200 then
         return 0
     end
     
     local c = table.concat(t)
+    local err
+    c, err = iconv.new("utf-8//IGNORE", "euc-jp"):iconv(c)
+    if err then
+        return err
+    end
     local point = string.match(c, "a%.ichiba%.jp%.rakuten%-static%.com/com/inc/search/contents%-event/festival/img/search_icon/deal/deal.-\".-<span.->(%d+)") or 0
-    return point
+    local sales_desc = ""
+    local item_desc = ""
+    
+    if field == nil then
+        local sales_desc_pattern, item_desc_pattern = patterns(is_mobile)
+        sales_desc = string.match(c, sales_desc_pattern)
+        item_desc = string.match(c, item_desc_pattern)
+    end
+    
+    return point, sales_desc, item_desc
 end
 
 run = function (params)
     local data = cjson.decode(params)
-    local tbody_pattern, item_pattern, link_pattern, copy_txt_pattern, review_num_pattern, price_pattern, point_pattern = patterns(data.is_mobile)
+    local sales_desc_pattern, item_desc_pattern, tbody_pattern, item_pattern, link_pattern, copy_txt_pattern, review_num_pattern, price_pattern, point_pattern = patterns(data.is_mobile)
     local page_limit
     if data.is_mobile == "1" then
         page_limit = 10
     else
         page_limit = 45
     end
-    local headers = fake_header(data.is_mobile)
     
     local t = {}
-    local response, code = http.request{url = data.url, headers = headers, sink = ltn12.sink.table(t)}
+    local response, code = http.request{url = string.format("http://search.rakuten.co.jp/search/mall/%s/-/p.1", data.keyword), headers = fake_header(data.is_mobile), sink = ltn12.sink.table(t)}
     local result = {}
     if code ~= 200 then
         return nil
     end
     
+    local need_desc = data.need_desc
     result.is_mobile = data.is_mobile
+    result.keyword_id = data.keyword_id
     result.keyword = data.keyword
     local date_table = os.date("*t")
     result.date = string.format("%4d-%02d-%02d", date_table.year, date_table.month, date_table.day)
     
     local c = table.concat(t)
+    if data.is_mobile == "0" and data.page_num == "1" then
+        result.related_keys = get_related_keywords(data.is_mobile, data.keyword, data.encode_key)
+    end
+    
     local tbody = string.match(c, tbody_pattern)
     if tbody == nil then
         return nil
@@ -104,6 +144,14 @@ run = function (params)
         item.review_num = string.match(tr, review_num_pattern)
         item.price = string.gsub(string.match(tr, price_pattern), ",", "")
         item.point = string.match(tr, point_pattern) or 0
+        if need_desc == "1" then
+            local tmp_point = 0
+            tmp_point, item.sales_desc, item.item_desc = track_item_detail(data.is_mobile, item.shop_name, item.item_code)
+            if item.point == 0 and tmp_point > 0 then
+                item.point = tmp_point
+            end
+        end
+        
         if string.match(tr, "<div%s+class=\"superDeal\">") then
             item.is_super_deal = 1
         end
@@ -114,13 +162,15 @@ run = function (params)
     end
     table.sort(result, comp_rank)
     
-    for k,v in ipairs(result) do
-        if v.is_super_deal then
-            v.point = track_super_deal(data.is_mobile, v.shop_name, v.item_code)
+    if need_desc == "0" then
+        for k,v in ipairs(result) do
+            if v.is_super_deal then
+                v.point = track_item_detail(data.is_mobile, v.shop_name, v.item_code, "point")
+            end
         end
     end
     
     return cjson.encode({result = result})
 end
 
-print(run('{"is_mobile":"0","url":"http://search.rakuten.co.jp/search/mall/ツイードメッセンジャーバッグ/-/p.1","keyword":"587853","page_num":"1"}'))
+print(run('{"is_mobile":"0","keyword":"天然ダイヤ","encode_key":"%E5%A4%A9%E7%84%B6%E3%83%80%E3%82%A4%E3%83%A4","keyword_id":"111111","page_num":"1","need_desc":"1"}'))
